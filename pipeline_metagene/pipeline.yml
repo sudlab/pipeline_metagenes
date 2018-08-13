@@ -1,0 +1,89 @@
+################################################################
+#
+#
+# Pipeline pipeline_pipeline_metagene.py configuration file 
+#
+# 
+################################################################
+## general options
+
+
+# Project name
+projectname: CGATProject
+
+# Copyright statement
+copyright: CGAT (2010-2014)
+
+# The short X.Y version.
+version: 0.1
+
+# The full version, including alpha/beta/rc tags.
+release: 0.1
+
+export: ./
+########################################################
+# geneset
+geneset: geneset.gtf.gz
+
+###########################################################
+# Method. Currently the only option is bam2geneprofile, but
+# transcript_region_metagene from iCLIPlib is coming soon.
+methods: bam2geneprofile
+
+database:
+  url: sqlite:////home/mb1ims/devel/pipeline_tutorial/intermediate/metagene.db
+  
+###########################################################
+# Options for bam2geneprofile
+bam2geneprofile:
+
+    # specify the type of metagene. Most common is geneprofile and tssprofile
+    method: tssprofile
+
+    # reporter is either gene or transcript
+    reporter: gene
+
+    # Method to normalize each transcript with, choose from none, sum (norm
+    # each region to its own sum), total-sum (norm to sum over all regions),
+    # max and total-max.
+    transcript_normalization: none
+
+    # Method to normalize final profile with. choose from none, area, max
+    # I recommend none as normalization can always be done at plotting
+    # stage.
+    profile_normalization: none
+    
+    # other options to bam2geneprofile, can use for setting things like
+    # resolution of binning etc.
+    options:
+
+
+############################################################
+# Options for plotting
+plotting:
+
+  # in the below, choose from method, geneset, source, condition
+  # replicate
+  
+  # A plot will be generated for every value of iterate-by
+  iterate-by: geneset
+
+  # specificy what to use when selecting the color for the lines
+  # leave blank to have only one color
+  colour-by: replicate
+
+  # specify what to facet on. Leave blank for no facets, or
+  # provide a faceting formula for facet_grid
+  facet-by: ~region
+
+  # plot width in inches
+  width: 4
+
+  # plot height in inches
+  height: 4
+
+  # image format
+  format: pdf
+
+  # apply your own options for themeing the plot here
+  theme:
