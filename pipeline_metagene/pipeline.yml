@@ -58,6 +58,12 @@ bam2geneprofile:
     options:
 
 
+transcript_regions:
+    src:
+    conda_env:
+    regions: tss,tts
+    options:
+
 ############################################################
 # Options for plotting
 plotting:

@@ -62,7 +62,7 @@ for (n in names(metagene_data)) {
     theme(legend.position = "bottom")
   
   if (!is.null(options$plotting$`facet-by`)) {
-    p <- p + facet_grid(as.formula(options$plotting$`facet-by`), scale="free_x")
+    p <- p + facet_grid(as.formula(options$plotting$`facet-by`), scale="free")
   }
     
   if (!is.null(options$plotting$theme)) {

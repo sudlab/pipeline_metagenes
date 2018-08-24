@@ -67,7 +67,7 @@ Code
 """
 import sys
 import os
-from ruffus import transform, regex, suffix, follows, subdivide, add_inputs, formatter, merge, split
+from ruffus import transform, regex, suffix, follows, subdivide, add_inputs, formatter, merge, split, mkdir
 from ruffus.combinatorics import product
 from CGATCore import Pipeline as P
 from CGATCore import IOTools
@@ -172,6 +172,7 @@ def split_gtf_by_category(infiles, outfiles, catname):
 
     
 # ------------------------------------------------------------------------------
+@active_if("bam2geneprofile" in PARAMS["methods"])
 @product(["*.bam","*.bed.gz","*.bw", "*.remote"],
          formatter(".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
          [split_gtf_by_category, PARAMS["geneset"]],
@@ -195,8 +196,6 @@ def do_metagene(infiles, outfile, filetype):
     else:
         preamble, postamble = "", ""
         
-    inoption = filetype_lookup[filetype]
-    
     outpattern = P.snip(outfile,
                         ".%s.matrix.tsv.gz" % PARAMS["bam2geneprofile_method"])
 
@@ -218,10 +217,48 @@ def do_metagene(infiles, outfile, filetype):
                         --normalize-profile=%(bam2geneprofile_profile_normalization)s
                         -P %(outpattern)s.%%s
                         -L %(outpattern)s.log
+                        %(other_options)s
                    %(postamble)s'''
     
     P.run(statement)
 
+
+@active_if("iclip_transcript_region_metagene" in PARAMS["methods"])
+@product(["*.bam","*.bed.gz","*.bw", "*.remote"],
+         formatter(".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
+         [split_gtf_by_category, PARAMS["geneset"]],
+         formatter(".+/(?P<geneset>.+).gtf.gz"),
+         r"iclip_transcript_regions.dir/{track[0][0]}.vs.{geneset[1][0]}.tsv.gz",
+         r"{filetype[0][0]}")
+def do_iclip_metagene(infiles, outfile, filetype):
+
+    bamfile, gtffile = infiles
+
+    if filetype == "remote":
+        preamble, postamble, bamfile, filetype = process_remote(bamfile)
+    else:
+        preamble, postamble = "", ""
+        
+    other_options = ""
+    if PARAMS["transcript_regions"]["options"] is not None:
+        for option, value in PARAMS["bam2geneprofile"].get("options", dict()).items():
+            if value is True:
+                other_options.append(option)
+            else:
+                other_options.append("{}={}".format((option, value)))
+
+    statement=''' %(preamble)s
+                   python %(transcript_regions_src_dir)s/scripts/iCLIP_transcript_regions_metagene.dir
+                        -I %(gtffile)s
+                         %(input)s
+                        --regions=%(tran
+script_regions_regions)s
+                        -S %(outfile)s
+                        -L %(outfile)s.log
+                        %(other_options)s
+                   %(postamble)s'''
+
+    P.run(statement, condaenv=PARAMS["transcript_regions"]["conda_env"])
     
 # ------------------------------------------------------------------------------
 @merge(do_metagene, "bam2geneprofile.load")
@@ -232,8 +269,18 @@ def merge_and_load_metagenes(infiles, outfile):
                            cat="source,condition,replicate,geneset,method",
                            options=" -i source -i condition -i replicate -i geneset")
 
+
+@merge(do_iclip_metagene, "transcript_regions.load")
+def merge_and_load_region_metagenes(infiles, outfile):
+
     
-# ------------------------------------------------------------------------------    
+    P.concatenate_and_load(infiles, outfile,
+                           regex_filename=".+/(.+)-(.+)-(.+)\.vs\.(.+).tsv.gz",
+                           cat="source,condition,replicate,geneset",
+                           options=" -i source -i condition -i replicate -i geneset")
+    
+#  -------------------------------------------------------------------------    
+@follows(mkdir(os.path.join(PARAMS["export"], "images")))
 @split(merge_and_load_metagenes,
        os.path.join(PARAMS["export"], "images/*.%s" % PARAMS["plotting"]["format"]))
 def do_plots(infile, outfiles):
@@ -247,7 +294,7 @@ def do_plots(infile, outfiles):
     
 # ---------------------------------------------------
 # Generic pipeline tasks
-@follows(do_plots)
+@follows(do_plots, merge_and_load_region_metagenes)
 def full():
     pass
 
