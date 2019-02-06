@@ -25,6 +25,23 @@ export: ./
 # geneset
 geneset: geneset.gtf.gz
 
+#######################################################
+# Set filter to True in order to filter overlapping genes
+# from the geneset
+
+filter:
+  filter: False
+
+  # Use the following gense to build the list of overlapping genes
+  # If blank will simply use the master genset. This is useful
+  # if the main geneset is a subset of all genes
+  geneset:
+
+  # These settings set the exclusion zone around the genes
+  # in the geneset.
+  extension_up: 3000
+  extension_down: 3000
+    
 ###########################################################
 # Method. Currently the only option is bam2geneprofile, but
 # transcript_region_metagene from iCLIPlib is coming soon.

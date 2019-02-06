@@ -67,11 +67,12 @@ Code
 """
 import sys
 import os
-from ruffus import transform, regex, suffix, follows, subdivide, add_inputs, formatter, merge, split, mkdir
+import shutil
+from ruffus import transform, regex, suffix, follows, subdivide, add_inputs, formatter, merge, split, mkdir, active_if
 from ruffus.combinatorics import product
-from CGATCore import Pipeline as P
-from CGATCore import IOTools
-from CGAT import GTF
+from cgatcore import pipeline as P
+from cgatcore import iotools
+from cgat import GTF
 import pandas as pd
 import requests
 import json
@@ -104,7 +105,7 @@ def get_encode_file(acc):
 # ------------------------------------------------------------------------------
 def process_remote(infile):
 
-    repository, acc = IOTools.open_file(infile).readlines()[0].strip().split()
+    repository, acc = iotools.open_file(infile).readlines()[0].strip().split()
 
     if repository == "ENCODE":
         location, filetype = get_encode_file(acc)
@@ -147,11 +148,11 @@ def split_gtf_by_category(infiles, outfiles, catname):
     categories = pd.read_csv(catfile, index_col=0, squeeze=True, sep="\t")
     
     # create output filepool
-    outpool = IOTools.FilePool("{}_%s.gtf.gz".format(catname), force=True)
+    outpool = iotools.FilePool("{}_%s.gtf.gz".format(catname), force=True)
 
-    gtffile = IOTools.open_file(gtffile)
+    gtffile = iotools.open_file(gtffile)
 
-    for gtfline in GTF.iterator(gtffile):
+    for gtfline in gtf.iterator(gtffile):
 
         try:
             transcript_id = gtfline.transcript_id
@@ -170,12 +171,73 @@ def split_gtf_by_category(infiles, outfiles, catname):
 
     outpool.close()
 
-    
+
+@transform(PARAMS["geneset"],
+           formatter(),
+           "contigs.tsv")
+def get_contigs(infile, outfile):
+    '''Generate a pseudo-contigs file from the geneset, where the length of 
+    each contigs is determined by the GTF entry with the highest end coordinate.
+    Will not stop things going off the end on contigs, but that doesn't really
+    matter for our purposes'''
+
+    last_contig = None
+    max_end = 0
+    outlines = []
+    for entry in GTF.iterator(iotools.open_file(infile)):
+   
+        if last_contig and entry.contig != last_contig:
+            outlines.append([entry.contig, str(max_end)])
+            max_end = 0
+            
+        max_end = max(max_end, entry.end)
+        last_contig = entry.contig
+
+    outlines.append([last_contig, str(max_end)])
+    iotools.write_lines(outfile, outlines, header=None)
+
+
+# ------------------------------------------------------------------------------
+@transform([split_gtf_by_category, PARAMS["geneset"]],
+           regex("(?:.+/)?(.+).gtf.gz"),
+           add_inputs(PARAMS["filter"]["geneset"]
+                       if PARAMS["filter"]["geneset"] is not None
+                       else PARAMS["geneset"],
+                      get_contigs),
+           r"\1.filtered.gtf.gz")
+def filter_geneset(infiles, outfile):
+    '''If :param: filter/filter is set, then filter geneset for
+    overlapping genes. If not set or False, will just copy infile.
+
+    Will use second gtf to filter if provided, or otherwise will 
+    compare input geneset to it self. '''
+
+    geneset, overlapper, genome_file = infiles
+
+    if PARAMS["filter"]["filter"]:
+        
+        statement = '''cgat gtf2gtf --method=merge-transcripts -I %(overlapper)s
+                     | cgat gff2bed --is-gtf -L %(outfile)s.log
+                     | bedtools slop -l %(filter_extension_up)s -r %(filter_extension_down)s
+                                     -s -i - -g %(genome_file)s
+                      | sort -k1,1 -k2,2n
+                     | bedtools merge -c 4 -o count
+                     | awk '$4>1'
+                     | bedtools intersect -v -a %(geneset)s -b -
+                     | bgzip > %(outfile)s'''
+        P.run(statement)
+
+    else:
+
+        shutil.copyfile(geneset, outfile)
+
+
+      
 # ------------------------------------------------------------------------------
 @active_if("bam2geneprofile" in PARAMS["methods"])
 @product(["*.bam","*.bed.gz","*.bw", "*.remote"],
          formatter(".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
-         [split_gtf_by_category, PARAMS["geneset"]],
+         filter_geneset,
          formatter(".+/(?P<geneset>.+).gtf.gz"),
          r"bam2geneprofile.dir/{track[0][0]}.vs.{geneset[1][0]}.%s.matrix.tsv.gz" %
            PARAMS["bam2geneprofile_method"],
@@ -203,9 +265,9 @@ def do_metagene(infiles, outfile, filetype):
     if PARAMS["bam2geneprofile"]["options"] is not None:
         for option, value in PARAMS["bam2geneprofile"].get("options", dict()).items():
             if value is True:
-                other_options.append(option)
+                other_options += " " + option
             else:
-                other_options.append("{}={}".format((option, value)))
+                other_options += " {}={}".format(option, value)
             
     statement = ''' %(preamble)s
                     cgat bam2geneprofile
@@ -243,9 +305,9 @@ def do_iclip_metagene(infiles, outfile, filetype):
     if PARAMS["transcript_regions"]["options"] is not None:
         for option, value in PARAMS["bam2geneprofile"].get("options", dict()).items():
             if value is True:
-                other_options.append(option)
+                other_options += " " + option
             else:
-                other_options.append("{}={}".format((option, value)))
+                other_options += " {}={}".format(option, value)
 
     statement=''' %(preamble)s
                    python %(transcript_regions_src_dir)s/scripts/iCLIP_transcript_regions_metagene.dir
@@ -269,7 +331,7 @@ def merge_and_load_metagenes(infiles, outfile):
                            cat="source,condition,replicate,geneset,method",
                            options=" -i source -i condition -i replicate -i geneset")
 
-
+@active_if("iclip_transcript_region_metagene" in PARAMS["methods"])
 @merge(do_iclip_metagene, "transcript_regions.load")
 def merge_and_load_region_metagenes(infiles, outfile):
 
