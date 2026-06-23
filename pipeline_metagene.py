@@ -315,9 +315,9 @@ def do_iclip_metagene(infiles, outfile, filetype):
                 other_options += " {}={}".format(option, value)
 
     input = filetype_lookup[filetype] + " " + bamfile
-    
+
     statement=''' %(preamble)s
-                   python %(transcript_regions_src_dir)s/scripts/iCLIP_transcript_regions_metagene.dir
+                   python %(transcript_regions_src_dir)s/scripts/iCLIP_transcript_regions_metagene.py
                         -I %(gtffile)s
                          %(input)s
                         --regions=%(transcript_regions_regions)s
