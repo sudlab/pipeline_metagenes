@@ -236,9 +236,9 @@ def filter_geneset(infiles, outfile):
 # ------------------------------------------------------------------------------
 @active_if("bam2geneprofile" in PARAMS["methods"])
 @product(["*.bam","*.bed.gz","*.bw", "*.remote"],
-         formatter(".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
+         formatter(r".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
          filter_geneset,
-         formatter(".+/(?P<geneset>.+).gtf.gz"),
+         formatter(r".+/(?P<geneset>.+).gtf.gz"),
          r"bam2geneprofile.dir/{track[0][0]}.vs.{geneset[1][0]}.%s.matrix.tsv.gz" %
            PARAMS["bam2geneprofile_method"],
          r"{filetype[0][0]}")
@@ -287,9 +287,9 @@ def do_metagene(infiles, outfile, filetype):
 
 @active_if("iclip_transcript_region_metagene" in PARAMS["methods"])
 @product(["*.bam","*.bed.gz","*.bw", "*.remote"],
-         formatter(".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
+         formatter(r".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
          [split_gtf_by_category, PARAMS["geneset"]],
-         formatter(".+/(?P<geneset>.+).gtf.gz"),
+         formatter(r".+/(?P<geneset>.+).gtf.gz"),
          r"iclip_transcript_regions.dir/{track[0][0]}.vs.{geneset[1][0]}.tsv.gz",
          r"{filetype[0][0]}")
 def do_iclip_metagene(infiles, outfile, filetype):
