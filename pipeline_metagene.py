@@ -294,6 +294,11 @@ def do_metagene(infiles, outfile, filetype):
          r"{filetype[0][0]}")
 def do_iclip_metagene(infiles, outfile, filetype):
 
+    filetype_lookup = {"bam": "",
+                       "bed": "--bed",
+                       "bed.gz": "--bed",
+                       "bw": "--plus_wig",
+                       "bigWig": "--plus_wig"}
     bamfile, gtffile = infiles
 
     if filetype == "remote":
@@ -303,18 +308,19 @@ def do_iclip_metagene(infiles, outfile, filetype):
         
     other_options = ""
     if PARAMS["transcript_regions"]["options"] is not None:
-        for option, value in PARAMS["bam2geneprofile"].get("options", dict()).items():
+        for option, value in PARAMS["transcript_regions"].get("options", dict()).items():
             if value is True:
                 other_options += " " + option
             else:
                 other_options += " {}={}".format(option, value)
 
+    input = filetype_lookup[filetype] + " " + bamfile
+    
     statement=''' %(preamble)s
                    python %(transcript_regions_src_dir)s/scripts/iCLIP_transcript_regions_metagene.dir
                         -I %(gtffile)s
                          %(input)s
-                        --regions=%(tran
-script_regions_regions)s
+                        --regions=%(transcript_regions_regions)s
                         -S %(outfile)s
                         -L %(outfile)s.log
                         %(other_options)s
