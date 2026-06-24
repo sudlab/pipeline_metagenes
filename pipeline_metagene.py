@@ -65,6 +65,7 @@ Code
 ====
 
 """
+import re
 import sys
 import os
 import shutil
@@ -75,7 +76,6 @@ from cgatcore import iotools
 from cgat import GTF
 import pandas as pd
 import requests
-import json
 
 # load options from the config file
 PARAMS = P.get_parameters(
@@ -287,7 +287,7 @@ def do_metagene(infiles, outfile, filetype):
 
 @active_if("iclip_transcript_region_metagene" in PARAMS["methods"])
 @product(["*.bam","*.bed.gz","*.bw", "*.remote"],
-         formatter(r".+/(?P<track>.+)\.(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
+         formatter(r".+/(?P<track>[^\.]+)(?P<strand>\.|plus\.)(?P<filetype>bam|bed.gz|bw|bed|bigWig|remote)"),
          [split_gtf_by_category, PARAMS["geneset"]],
          formatter(r".+/(?P<geneset>.+).gtf.gz"),
          r"iclip_transcript_regions.dir/{track[0][0]}.vs.{geneset[1][0]}.tsv.gz",
@@ -315,6 +315,9 @@ def do_iclip_metagene(infiles, outfile, filetype):
                 other_options += " {}={}".format(option, value)
 
     input = filetype_lookup[filetype] + " " + bamfile
+
+    if re.search(r"plus.bw$|plus.bigWig$", bamfile):
+        input += " --minus_wig=" + bamfile.replace("plus", "minus")
 
     statement=''' %(preamble)s
                    python %(transcript_regions_src_dir)s/scripts/iCLIP_transcript_region_metagene.py
