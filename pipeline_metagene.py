@@ -297,8 +297,8 @@ def do_iclip_metagene(infiles, outfile, filetype):
     filetype_lookup = {"bam": "",
                        "bed": "--bed",
                        "bed.gz": "--bed",
-                       "bw": "--plus_wig",
-                       "bigWig": "--plus_wig"}
+                       "bw": "--plus-wig",
+                       "bigWig": "--plus-wig"}
     bamfile, gtffile = infiles
 
     if filetype == "remote":
@@ -317,7 +317,7 @@ def do_iclip_metagene(infiles, outfile, filetype):
     input = filetype_lookup[filetype] + " " + bamfile
 
     if re.search(r"plus.bw$|plus.bigWig$", bamfile):
-        input += " --minus_wig=" + bamfile.replace("plus", "minus")
+        input += " --minus-wig=" + bamfile.replace("plus", "minus")
 
     statement=''' %(preamble)s
                    python %(transcript_regions_src_dir)s/scripts/iCLIP_transcript_region_metagene.py
