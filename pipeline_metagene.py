@@ -187,7 +187,7 @@ def get_contigs(infile, outfile):
     for entry in GTF.iterator(iotools.open_file(infile)):
    
         if last_contig and entry.contig != last_contig:
-            outlines.append([entry.contig, str(max_end)])
+            outlines.append([last_contig, str(max_end)])
             max_end = 0
             
         max_end = max(max_end, entry.end)
